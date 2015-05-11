@@ -1,0 +1,250 @@
+/*
+ * Reference:
+ *  http://tools.android.com/tech-docs/new-build-system/user-guide
+ *  http://tools.android.com/docs/tools/building/plugin-for-gradle.html
+ */
+
+apply plugin: 'com.android.application'
+
+// The Android DSL
+android {
+    compileSdkVersion 21
+    buildToolsVersion "21.1.2"
+
+    // define a default flavor, defaultConfig is the same type as customed product flavors(e.g. demo, full)
+    defaultConfig {
+        applicationId "com.example.app"
+        minSdkVersion 15
+        targetSdkVersion 21
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            // will generate 'libJniDemo.so'
+            moduleName "JniDemo"
+            cFlags "-DANDROID_NDK -D_RELEASE"
+            // LOCAL_LDLIBS in Android.mk
+            ldLibs "m", "log", "jnigraphics"
+            // APP_ABI in Android.mk
+            abiFilters "all"
+            // APP_STL in Android.mk
+            stl "stlport_shared"
+        }
+    }
+    
+    /*
+     * Build Type + Product Flavor = Build Variant
+     * Your can define product flavor dimentions, e.g.
+     *          flavorDimensions "abi", "device", "version"
+     * this will result in resources overridden order:
+     *          abi > device > version > defaultConfig
+     * and this will make lots of variates, e.g.
+     *  <abi>-<device>-<version>-<build type>
+     *  x86-tablet-full-release
+     *  ...
+     */
+
+    // defines the possible dimensions, as well as the order
+    flavorDimensions "abi", "device", "version"
+    
+    productFlavors {
+        demo {
+            applicationId "com.example.app.demo"
+            versionName "1.0-demo"
+            flavorDimension "version"
+        }
+        full {
+            applicationId "com.example.app.full"
+            versionName "1.0-full"
+            flavorDimension "version"
+        }
+        phone {
+            flavorDimension "device"
+            // ...
+        }
+        tablet { /* ... */ }
+        x86 {
+            flavorDimension "abi"
+            // ...
+        }
+        arm { /* ... */ }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            signingConfig signingConfigs.debug // this is the default configuration
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release // this is the default configuration
+        }
+        foo {
+            signingConfig signingConfigs.debug // set a signing cofig mannully
+        }
+    }
+
+    /*
+     * every product flavor and build type CAN has its own <sourceSet>, if not configurated,
+     * use default flavor's configurations.
+     *
+     * src/main/ - the main source directory (the default configuration common to all variants)
+     * src/<buildType>/ - the source directory
+     * src/<productFlavor>/ - the source directory
+     
+     * The source code from these directories is used together to generate the output for a build variant.
+     * You can have classes with the same name in different directories as long as those directories are
+     * NOT used together in the same variant.
+     *
+     * The build system also merges all the manifests into a single manifest, so each build variant can define
+     * different components or permissions in the final manifest. The manifest merge priority from lowest to highest is
+     *          libraries/dependencies -> main src -> productFlavor -> buildType.
+     *
+     * The build system merges all the resources from the all the source directories. If different folders
+     * contain resources with the same name for a build variant, the priority order is the following:
+     * build type resources override those from the product flavor, which override the resources
+     * in the main source directory, which override those in any libraries.
+     */
+    sourceSets {
+        // for main flavor
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            resources.srcDirs = ['src']
+            aidl.srcDirs = ['src']
+            renderscript.srcDirs = ['src']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
+            jniLibs.srcDirs = ['libs']
+        }
+        // for androidTest flavor
+        androidTest.setRoot('tests')
+        // for demo flavor
+        demo { /* ... */ }
+        // for full flavor
+        full { /* ... */ }
+        // for debug build type
+        debug { /* ... */ }
+        // for release build type
+        release { /* ... */ }
+    }
+    
+    signingConfigs {
+        // for debug build type
+        debug { /* ... */ }
+        // for release build type
+        release {
+            storeFile file("XXX.keystore")
+            storePassword "XXX"
+            keyAlias "XXX"
+            keyPassword "XXX"
+        }
+    }
+    
+    
+    /****************** Options ********************/
+    
+    // affect all tasks compiling Java source code
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7 // a string, "1.7"
+        targetCompatibility JavaVersion.VERSION_1_7 // a string, "1.7"
+    }
+    
+    // affects all tasks using aapt
+    aaptOptions {
+        noCompress 'foo', 'bar'
+        ignoreAssetsPattern "!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
+    
+    // affects all tasks using dex
+    dexOptions {
+        incremental false
+        preDexLibraries = false
+        jumboMode = false
+        javaMaxHeapSize "2048M"
+    }
+    
+    testOptions {
+        resultsDir = "$project.buildDir/foo/results"
+        reportDir = "$project.buildDir/foo/report"
+    }
+
+    // all available lint options
+    lintOptions {
+        // set to true to turn off analysis progress reporting by lint
+        quiet true
+        // if true, stop the gradle build if errors are found
+        abortOnError false
+        // if true, only report errors
+        ignoreWarnings true
+        // if true, emit full/absolute paths to files with errors (true by default)
+        absolutePaths true
+        // if true, check all issues, including those that are off by default
+        checkAllWarnings true
+        // if true, treat all warnings as errors
+        warningsAsErrors true
+        // turn off checking the given issue id's
+        disable 'TypographyFractions','TypographyQuotes'
+        // turn on the given issue id's
+        enable 'RtlHardcoded','RtlCompat', 'RtlEnabled'
+        // check *only* the given issue id's
+        check 'NewApi', 'InlinedApi'
+        // if true, don't include source code lines in the error output
+        noLines true
+        // if true, show all locations for an error, do not truncate lists, etc.
+        showAll true
+        // Fallback lint configuration (default severities, etc.)
+        lintConfig file("default-lint.xml")
+        // if true, generate a text report of issues (false by default)
+        textReport true
+        // location to write the output; can be a file or 'stdout'
+        textOutput 'stdout'
+        // if true, generate an XML report for use by for example Jenkins
+        xmlReport false
+        // file to write report to (if not specified, defaults to lint-results.xml)
+        xmlOutput file("lint-report.xml")
+        // if true, generate an HTML report (with issue explanations, sourcecode, etc)
+        htmlReport true
+        // optional path to report (default will be lint-results.html in the builddir)
+        htmlOutput file("lint-report.html")
+
+       // set to true to have all release builds run lint on issues with severity=fatal
+       // and abort the build (controlled by abortOnError above) if fatal issues are found
+       checkReleaseBuilds true
+        // Set the severity of the given issues to fatal (which means they will be
+        // checked during release builds (even if the lint target is not included)
+        fatal 'NewApi', 'InlineApi'
+        // Set the severity of the given issues to error
+        error 'Wakelock', 'TextViewEdits'
+        // Set the severity of the given issues to warning
+        warning 'ResourceAsColor'
+        // Set the severity of the given issues to ignore (same as disabling the check)
+        ignore 'TypographyQuotes'
+    }
+}
+
+
+/****************** Dependencies ********************/
+
+dependencies {
+    // jar file dependency
+    compile files('libs/xxx.jar', 'libs/yyy.jar')
+    // Module dependency
+    compile project(":lib")
+    // Remote binary dependency
+    compile 'com.android.support:appcompat-v7:19.0.1'
+    // Local binary dependency
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    
+    // dependencies for build types (e.g. debug, release) - <buildtype>Compile
+    debugCompile 'com.android.support:appcompat-v7:19.0.1'
+    releaseCompile 'com.android.support:appcompat-v7:19.0.1'
+    
+    // dependencies for flavors (e.g. demo, full) - <flavor>Compile
+    demoCompile 'com.android.support:appcompat-v7:19.0.1'
+    fullCompile 'com.android.support:appcompat-v7:19.0.1'
+    
+    /* <runtime>, <provided> dependencies are just like <compile> */
+}
